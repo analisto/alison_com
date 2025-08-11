@@ -22,7 +22,7 @@ export default function Home() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    fetchQuotes();
+    fetchQuotes(searchQuery);
   }, [selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCategories = async () => {
@@ -35,19 +35,24 @@ export default function Home() {
     }
   };
 
-  const fetchQuotes = async () => {
+  const fetchQuotes = async (searchTerm?: string) => {
     setLoading(true);
     try {
       let url = '/api/quotes?limit=20';
       if (selectedCategory) {
         url += `&category=${encodeURIComponent(selectedCategory)}`;
       }
+      if (searchTerm && searchTerm.trim()) {
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+      }
       
       const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setQuotes(data.quotes);
     } catch (error) {
       console.error('Failed to fetch quotes:', error);
+      alert('Failed to fetch quotes. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -75,7 +80,7 @@ export default function Home() {
     try {
       setSelectedCategory(null);
       setSearchQuery('');
-      await fetchQuotes();
+      await fetchQuotes('');
     } catch (error) {
       console.error('Failed to refresh quotes:', error);
       alert('Failed to refresh quotes. Please try again.');
@@ -86,17 +91,7 @@ export default function Home() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim() === '') {
-      fetchQuotes();
-      return;
-    }
-
-    const filteredQuotes = quotes.filter(quote =>
-      quote.quote.toLowerCase().includes(query.toLowerCase()) ||
-      quote.author.toLowerCase().includes(query.toLowerCase()) ||
-      quote.category.toLowerCase().includes(query.toLowerCase())
-    );
-    setQuotes(filteredQuotes);
+    fetchQuotes(query);
   };
 
   return (
