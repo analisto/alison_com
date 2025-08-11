@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { Quote } from '@/types/quote';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const result = await pool.query(
