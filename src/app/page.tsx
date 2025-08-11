@@ -12,6 +12,8 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [randomLoading, setRandomLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -52,13 +54,33 @@ export default function Home() {
   };
 
   const fetchRandomQuote = async () => {
+    setRandomLoading(true);
     try {
       const response = await fetch('/api/quotes/random');
+      if (!response.ok) throw new Error('Failed to fetch');
       const quote = await response.json();
       setQuotes([quote]);
       setSelectedCategory(null);
+      setSearchQuery('');
     } catch (error) {
       console.error('Failed to fetch random quote:', error);
+      alert('Failed to fetch random quote. Please try again.');
+    } finally {
+      setRandomLoading(false);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setRefreshLoading(true);
+    try {
+      setSelectedCategory(null);
+      setSearchQuery('');
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Failed to refresh quotes:', error);
+      alert('Failed to refresh quotes. Please try again.');
+    } finally {
+      setRefreshLoading(false);
     }
   };
 
@@ -91,18 +113,17 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
             <button
               onClick={fetchRandomQuote}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg"
+              disabled={randomLoading}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-purple-400 disabled:to-blue-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg disabled:transform-none"
             >
-              🎲 Random Quote
+              {randomLoading ? '🔄 Loading...' : '🎲 Random Quote'}
             </button>
             <button
-              onClick={() => {
-                setSelectedCategory(null);
-                fetchQuotes();
-              }}
-              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg"
+              onClick={handleRefreshAll}
+              disabled={refreshLoading}
+              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-green-400 disabled:to-teal-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg disabled:transform-none"
             >
-              🔄 Refresh All
+              {refreshLoading ? '🔄 Loading...' : '🔄 Refresh All'}
             </button>
           </div>
         </header>
