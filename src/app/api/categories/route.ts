@@ -22,7 +22,7 @@ export async function GET() {
       .map(row => row.author.trim())
       .filter(author => {
         const words = author.split(' ');
-        return words.length <= 4 && words.every(word => word.length > 1) && 
+        return words.length <= 4 && words.every((word: string) => word.length > 1) && 
                !author.includes('(') && !author.includes(')') && 
                !author.includes('"') && !author.includes('.');
       });
