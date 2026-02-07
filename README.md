@@ -291,6 +291,11 @@ python scripts/run_migrations.py
 
 The workflow assumes database schema is already set up.
 
+### Learn More
+
+For complete workflow documentation including customization, monitoring, and troubleshooting, see:
+- **[GitHub Actions Workflow Documentation](docs/scrape-data-workflow.md)**
+
 ## Data Sources
 
 ### API Endpoints
@@ -395,7 +400,8 @@ bus_route_dashboard/
     ├── db_utils.md               # Database utilities documentation
     ├── run_migrations.md         # Migration runner documentation
     ├── stops.md                  # Stops scraper documentation
-    └── busDetails.md             # Bus details scraper documentation
+    ├── busDetails.md             # Bus details scraper documentation
+    └── scrape-data-workflow.md   # GitHub Actions workflow documentation
 ```
 
 ## Database Statistics
