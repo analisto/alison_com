@@ -29,13 +29,15 @@ STOPS_ENDPOINT = f"{API_BASE_URL}/stop/getAll"
 
 def parse_coordinate(coord_str: str) -> Optional[float]:
     """
-    Parse coordinate string that may use comma or period as decimal separator
-    and may have thousands separators.
+    Parse coordinate string from Ayna API that uses commas/periods as separators.
+
+    Geographic coordinates (latitude/longitude) in the format '50,206,297' represent
+    50.206297 degrees. The format uses comma as both thousands and fractional separator.
 
     Examples:
-        '50,206,297' -> 50.206297
-        '40,43885' -> 40.43885
-        '49.961721' -> 49.961721
+        '50,206,297' -> 50.206297 (longitude)
+        '40,43885' -> 40.43885 (latitude)
+        '49.961721' -> 49.961721 (longitude)
 
     Args:
         coord_str: Coordinate string from API
@@ -48,24 +50,22 @@ def parse_coordinate(coord_str: str) -> Optional[float]:
 
     coord_str = str(coord_str).strip()
 
-    # Count commas and periods
-    comma_count = coord_str.count(',')
-    period_count = coord_str.count('.')
+    # Remove all separators (commas and periods)
+    digits_only = coord_str.replace(',', '').replace('.', '')
 
-    # If multiple separators of same type, last one is decimal separator
-    if comma_count > 1:
-        # Replace all but last comma, then convert last comma to period
-        parts = coord_str.rsplit(',', 1)
-        coord_str = parts[0].replace(',', '') + '.' + parts[1]
-    elif comma_count == 1:
-        # Single comma is decimal separator
-        coord_str = coord_str.replace(',', '.')
-    elif period_count > 1:
-        # Multiple periods - remove all but last (thousands separators)
-        parts = coord_str.rsplit('.', 1)
-        coord_str = parts[0].replace('.', '') + '.' + parts[1]
+    # For geographic coordinates, we expect 2-3 digits before decimal
+    # Baku coordinates: lat ~40.x, lon ~49-50.x
+    # Insert decimal point after 2nd digit
+    if len(digits_only) > 2:
+        coord_str = digits_only[:2] + '.' + digits_only[2:]
+    else:
+        coord_str = digits_only
 
-    return float(coord_str)
+    try:
+        return float(coord_str)
+    except ValueError:
+        logger.warning(f"Could not parse coordinate: {coord_str}")
+        return None
 
 
 def fetch_stops() -> Optional[List[Dict[str, Any]]]:

@@ -31,6 +31,47 @@ if not DATABASE_URL:
 connection_pool: Optional[psycopg2.pool.SimpleConnectionPool] = None
 
 
+def parse_coordinate(coord_str: str) -> Optional[float]:
+    """
+    Parse coordinate string from Ayna API that uses commas/periods as separators.
+
+    Geographic coordinates (latitude/longitude) in the format '50,206,297' represent
+    50.206297 degrees. The format uses comma as both thousands and fractional separator.
+
+    Examples:
+        '50,206,297' -> 50.206297 (longitude)
+        '40,43885' -> 40.43885 (latitude)
+        '49.961721' -> 49.961721 (longitude)
+
+    Args:
+        coord_str: Coordinate string from API
+
+    Returns:
+        Float coordinate value
+    """
+    if not coord_str:
+        return None
+
+    coord_str = str(coord_str).strip()
+
+    # Remove all separators (commas and periods)
+    digits_only = coord_str.replace(',', '').replace('.', '')
+
+    # For geographic coordinates, we expect 2-3 digits before decimal
+    # Baku coordinates: lat ~40.x, lon ~49-50.x
+    # Insert decimal point after 2nd digit
+    if len(digits_only) > 2:
+        coord_str = digits_only[:2] + '.' + digits_only[2:]
+    else:
+        coord_str = digits_only
+
+    try:
+        return float(coord_str)
+    except ValueError:
+        logger.warning(f"Could not parse coordinate: {coord_str}")
+        return None
+
+
 def init_connection_pool(minconn: int = 1, maxconn: int = 10) -> None:
     """
     Initialize the database connection pool

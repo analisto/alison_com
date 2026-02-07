@@ -22,7 +22,7 @@ from typing import Optional, List, Dict, Any
 from collections import defaultdict
 from db_utils import (
     execute_values, execute_many, table_exists, get_row_count,
-    truncate_table, test_connection, upsert_reference_data
+    truncate_table, test_connection, upsert_reference_data, parse_coordinate
 )
 
 # Configure logging
@@ -194,8 +194,8 @@ def save_stop_details(all_buses: List[Dict[str, Any]]) -> bool:
     try:
         logger.info("\nSaving stop details...")
 
-        # Truncate table
-        truncate_table('stop_details')
+        # Truncate table (CASCADE because referenced by bus_stops)
+        truncate_table('stop_details', cascade=True)
 
         # Collect unique stops
         stops_dict = {}
@@ -209,13 +209,9 @@ def save_stop_details(all_buses: List[Dict[str, Any]]) -> bool:
         # Prepare data
         data_tuples = []
         for stop in stops_dict.values():
-            # Convert coordinates, handling comma as decimal separator
-            longitude = None
-            latitude = None
-            if stop.get('longitude'):
-                longitude = float(str(stop['longitude']).replace(',', '.'))
-            if stop.get('latitude'):
-                latitude = float(str(stop['latitude']).replace(',', '.'))
+            # Convert coordinates using helper function
+            longitude = parse_coordinate(stop.get('longitude'))
+            latitude = parse_coordinate(stop.get('latitude'))
 
             data_tuples.append((
                 stop['id'],
@@ -425,9 +421,9 @@ def save_route_coordinates(all_buses: List[Dict[str, Any]]) -> bool:
                 flow_coords = route.get('flowCoordinates', [])
 
                 for idx, coord in enumerate(flow_coords):
-                    # Convert coordinates, handling comma as decimal separator
-                    lat = float(str(coord['lat']).replace(',', '.')) if coord.get('lat') else None
-                    lng = float(str(coord['lng']).replace(',', '.')) if coord.get('lng') else None
+                    # Convert coordinates using helper function
+                    lat = parse_coordinate(coord.get('lat'))
+                    lng = parse_coordinate(coord.get('lng'))
 
                     data_tuples.append((
                         route_id,
