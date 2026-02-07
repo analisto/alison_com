@@ -123,6 +123,174 @@ This will:
 
 **Expected runtime:** ~25-30 seconds
 
+## Automated Data Scraping (GitHub Actions)
+
+The project includes automated data scraping using **GitHub Actions** that runs every 3 hours to keep the database fresh.
+
+### Workflow Overview
+
+The workflow (`.github/workflows/scrape-data.yml`) automatically:
+1. Runs `stops.py` to update bus stop data
+2. Runs `busDetails.py` to update bus route details
+3. Uploads logs as artifacts for review
+4. Reports success/failure status
+
+### Schedule
+
+- **Automatic runs**: Every 3 hours (at :00 minutes)
+- **Cron expression**: `0 */3 * * *`
+- **Manual trigger**: Available via "Actions" tab on GitHub
+
+### Setup Instructions
+
+#### 1. Configure Database Secret
+
+Add your database URL as a GitHub Secret:
+
+1. Go to your repository on GitHub
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Name: `DATABASE_URL`
+5. Value: `postgresql://user:password@host:port/database?sslmode=require`
+6. Click **Add secret**
+
+#### 2. Enable GitHub Actions
+
+1. Go to the **Actions** tab in your repository
+2. If prompted, click **I understand my workflows, go ahead and enable them**
+3. The workflow will start running automatically on the schedule
+
+### Manual Trigger
+
+To manually trigger a data refresh:
+
+1. Go to **Actions** tab
+2. Click **Scrape Bus Route Data** workflow
+3. Click **Run workflow** button
+4. Select branch (usually `main`)
+5. Click **Run workflow**
+
+### Monitoring
+
+#### View Workflow Runs
+
+1. Go to **Actions** tab
+2. Click on **Scrape Bus Route Data** workflow
+3. View list of all workflow runs with status indicators:
+   - ✅ Green checkmark: Success
+   - ❌ Red X: Failure
+   - 🟡 Yellow circle: In progress
+
+#### View Logs
+
+1. Click on any workflow run
+2. Click on job names to see detailed logs:
+   - **Scrape Bus Stops**: logs from stops.py
+   - **Scrape Bus Details**: logs from busDetails.py
+   - **Notify Completion**: final status report
+
+#### Download Log Artifacts
+
+Logs are automatically saved for 7 days:
+
+1. Click on a completed workflow run
+2. Scroll to **Artifacts** section at the bottom
+3. Download:
+   - `stops-scraper-logs`
+   - `bus-details-scraper-logs`
+
+### Workflow Configuration
+
+```yaml
+# Runs every 3 hours
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  scrape-stops:
+    runs-on: ubuntu-latest
+    steps:
+      - Checkout code
+      - Setup Python 3.11
+      - Install dependencies
+      - Run stops.py
+      - Upload logs
+
+  scrape-bus-details:
+    runs-on: ubuntu-latest
+    needs: scrape-stops  # Waits for stops to complete
+    steps:
+      - Checkout code
+      - Setup Python 3.11
+      - Install dependencies
+      - Run busDetails.py
+      - Upload logs
+```
+
+### Customizing the Schedule
+
+To change the scraping frequency, edit `.github/workflows/scrape-data.yml`:
+
+```yaml
+on:
+  schedule:
+    # Examples:
+    - cron: '0 */6 * * *'   # Every 6 hours
+    - cron: '0 0 * * *'     # Daily at midnight
+    - cron: '0 */1 * * *'   # Every hour
+    - cron: '0 0,12 * * *'  # Twice daily (midnight and noon)
+```
+
+[Cron expression reference](https://crontab.guru/)
+
+### Benefits
+
+- **Fresh Data**: Database automatically updated every 3 hours
+- **No Manual Intervention**: Fully automated process
+- **Error Tracking**: Logs preserved for debugging
+- **Status Notifications**: Clear success/failure indicators
+- **Cost Effective**: Free on GitHub for public repositories
+- **Reliable**: Runs on GitHub's infrastructure
+
+### Troubleshooting
+
+#### Workflow Fails with "Database connection failed"
+
+**Solution**: Check that `DATABASE_URL` secret is correctly configured:
+- Go to Settings → Secrets and variables → Actions
+- Verify `DATABASE_URL` exists and is correct
+- Ensure the database accepts connections from GitHub's IP ranges
+
+#### Workflow Doesn't Run on Schedule
+
+**Possible causes**:
+- Repository is private and you've exceeded free tier minutes
+- Workflow file has syntax errors (check Actions tab for warnings)
+- GitHub Actions are disabled for the repository
+
+**Solution**:
+- Check Actions tab for error messages
+- Verify workflow YAML syntax
+- Enable Actions in repository settings
+
+#### Stops Job Succeeds but Bus Details Fails
+
+This is expected occasionally:
+- Bus ID 96 consistently fails (known API issue)
+- The workflow continues and completes successfully
+- Check logs to verify it's just bus ID 96
+
+#### Logs Show "Table does not exist"
+
+**Solution**: Run migrations on your database:
+```bash
+python scripts/run_migrations.py
+```
+
+The workflow assumes database schema is already set up.
+
 ## Data Sources
 
 ### API Endpoints
@@ -208,19 +376,26 @@ ORDER BY tariff;
 
 ```
 bus_route_dashboard/
-├── .env                        # Database credentials (not in git)
-├── .gitignore                  # Git ignore rules
-├── README.md                   # This file
-├── requirements.txt            # Python dependencies
+├── .env                           # Database credentials (not in git)
+├── .gitignore                     # Git ignore rules
+├── README.md                      # This file
+├── requirements.txt               # Python dependencies
+├── .github/
+│   └── workflows/
+│       └── scrape-data.yml        # GitHub Actions workflow (every 3 hours)
 ├── migrations/
-│   └── 001_initial_schema.sql  # Database schema
+│   └── 001_initial_schema.sql     # Database schema
 ├── scripts/
-│   ├── db_utils.py            # Database utility functions
-│   ├── run_migrations.py      # Migration runner
-│   ├── stops.py               # Stops data fetcher
-│   └── busDetails.py          # Bus details fetcher
-├── data/                       # JSON backups (optional)
-└── docs/                       # Documentation
+│   ├── db_utils.py               # Database utility functions
+│   ├── run_migrations.py         # Migration runner
+│   ├── stops.py                  # Stops data fetcher
+│   └── busDetails.py             # Bus details fetcher
+├── data/                          # JSON backups (optional)
+└── docs/                          # Documentation
+    ├── db_utils.md               # Database utilities documentation
+    ├── run_migrations.md         # Migration runner documentation
+    ├── stops.md                  # Stops scraper documentation
+    └── busDetails.md             # Bus details scraper documentation
 ```
 
 ## Database Statistics
@@ -282,7 +457,7 @@ Ensure your database user has:
 
 ## Future Enhancements
 
-- [ ] Scheduled data refresh (cron jobs)
+- [x] **Scheduled data refresh** - ✅ Implemented via GitHub Actions (every 3 hours)
 - [ ] Real-time bus tracking integration
 - [ ] Web dashboard for visualization
 - [ ] Route optimization algorithms
@@ -290,6 +465,8 @@ Ensure your database user has:
 - [ ] Mobile app integration
 - [ ] Historical data tracking
 - [ ] Performance analytics
+- [ ] Email/Slack notifications on scraping failures
+- [ ] Data quality monitoring and alerts
 
 ## License
 
