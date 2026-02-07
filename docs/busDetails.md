@@ -1,10 +1,10 @@
 # busDetails.py
 
 ## Overview
-Python script that fetches detailed information for all bus routes in the Baku public transportation system. It first retrieves the list of all buses, then iterates through each bus ID to fetch comprehensive route details, stops, and coordinate data.
+Python script that fetches detailed information for all bus routes in the Baku public transportation system and saves it to PostgreSQL database. It retrieves the list of all buses, then iterates through each bus ID to fetch comprehensive route details, stops, and coordinate data, storing them across multiple normalized database tables.
 
 ## Purpose
-This script provides complete route information including stop sequences, geographic coordinates for route visualization, fare information, carrier details, and bidirectional route data for route optimization and analysis.
+This script provides complete route information including stop sequences, geographic coordinates for route visualization, fare information, carrier details, and bidirectional route data. It replaces existing data with fresh data on each run to ensure accuracy.
 
 ## API Endpoints
 
@@ -21,14 +21,154 @@ GET https://map-api.ayna.gov.az/api/bus/getBusById?id={bus_id}
 Returns detailed information for a specific bus route.
 
 ## Output
-- **File**: `data/busDetails.json`
-- **Format**: JSON array
-- **Total Records**: ~208-209 bus routes
-- **File Size**: ~16MB
+
+### Database Tables (Schema: ayna)
+
+The script populates 8 tables:
+
+| Table | Records | Description |
+|-------|---------|-------------|
+| `payment_types` | ~2 | Payment method reference data |
+| `regions` | ~1 | Geographic regions reference data |
+| `working_zone_types` | ~1 | Zone types reference data |
+| `stop_details` | ~2,700 | Detailed stop information with names |
+| `buses` | ~208 | Bus route information |
+| `bus_stops` | ~11,786 | Junction table linking buses to stops |
+| `routes` | ~416 | Direction-specific route metadata |
+| `route_coordinates` | ~109,147 | Flow coordinates for route visualization |
+
+**Strategy**: Truncate and replace (drops old data before inserting fresh data)
 
 ## Data Structure
 
-Each bus object contains comprehensive route information:
+### Database Schemas
+
+#### 1. Reference Tables
+
+**ayna.payment_types**
+```sql
+CREATE TABLE ayna.payment_types (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    deactived_date DATE,
+    priority INTEGER
+);
+```
+
+**ayna.regions**
+```sql
+CREATE TABLE ayna.regions (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    deactived_date DATE,
+    priority INTEGER
+);
+```
+
+**ayna.working_zone_types**
+```sql
+CREATE TABLE ayna.working_zone_types (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    deactived_date DATE,
+    priority INTEGER
+);
+```
+
+#### 2. Core Tables
+
+**ayna.buses**
+```sql
+CREATE TABLE ayna.buses (
+    id INTEGER PRIMARY KEY,
+    carrier VARCHAR(200),
+    number VARCHAR(20),
+    first_point VARCHAR(200),
+    last_point VARCHAR(200),
+    route_length DECIMAL(10, 2),
+    payment_type_id INTEGER REFERENCES ayna.payment_types(id),
+    card_payment_date DATE,
+    tariff INTEGER,
+    tariff_str VARCHAR(50),
+    region_id INTEGER REFERENCES ayna.regions(id),
+    working_zone_type_id INTEGER REFERENCES ayna.working_zone_types(id),
+    duration_minuts INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**ayna.stop_details**
+```sql
+CREATE TABLE ayna.stop_details (
+    id INTEGER PRIMARY KEY,
+    code VARCHAR(50),
+    name VARCHAR(200),
+    name_monitor VARCHAR(200),
+    utm_coord_x VARCHAR(50),
+    utm_coord_y VARCHAR(50),
+    longitude DECIMAL(10, 7),
+    latitude DECIMAL(10, 7),
+    is_transport_hub BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**ayna.bus_stops**
+```sql
+CREATE TABLE ayna.bus_stops (
+    bus_stop_id INTEGER PRIMARY KEY,
+    bus_id INTEGER REFERENCES ayna.buses(id) ON DELETE CASCADE,
+    stop_id INTEGER REFERENCES ayna.stop_details(id) ON DELETE CASCADE,
+    stop_code VARCHAR(50),
+    stop_name VARCHAR(200),
+    total_distance DECIMAL(10, 2),
+    intermediate_distance DECIMAL(10, 2),
+    direction_type_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**ayna.routes**
+```sql
+CREATE TABLE ayna.routes (
+    id INTEGER PRIMARY KEY,
+    code VARCHAR(50),
+    customer_name VARCHAR(200),
+    type VARCHAR(100),
+    name VARCHAR(200),
+    destination VARCHAR(500),
+    variant VARCHAR(100),
+    operator VARCHAR(200),
+    bus_id INTEGER REFERENCES ayna.buses(id) ON DELETE CASCADE,
+    direction_type_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**ayna.route_coordinates**
+```sql
+CREATE TABLE ayna.route_coordinates (
+    id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES ayna.routes(id) ON DELETE CASCADE,
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
+    sequence_order INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### API Response Format
+
+The API returns bus details in this format:
 
 ```json
 {
@@ -39,85 +179,16 @@ Each bus object contains comprehensive route information:
   "lastPoint": "Hövsan qəs.",
   "routLength": 30,
   "paymentTypeId": 2,
-  "cardPaymentDate": null,
   "tariff": 50,
   "regionId": 1,
   "workingZoneTypeId": 5,
-  "paymentType": { ... },
-  "region": { ... },
-  "workingZoneType": { ... },
+  "paymentType": { "id": 2, "name": "Nəğd", ... },
+  "region": { "id": 1, "name": "Bakı", ... },
+  "workingZoneType": { "id": 5, "name": "Şəhərdaxili", ... },
   "stops": [ ... ],
   "routes": [ ... ],
   "tariffStr": "0.50 AZN",
   "durationMinuts": 50
-}
-```
-
-### Main Fields Description
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | Integer | Unique bus route identifier |
-| `carrier` | String | Transport company operating the route |
-| `number` | String | Bus route number (e.g., "210", "108A") |
-| `firstPoint` | String | Starting point of the route |
-| `lastPoint` | String | End point of the route |
-| `routLength` | Integer | Route length in kilometers |
-| `paymentTypeId` | Integer | Payment method ID (1=Card, 2=Cash) |
-| `tariff` | Integer | Fare in qəpik (50 = 0.50 AZN) |
-| `regionId` | Integer | Region ID (1=Baku) |
-| `workingZoneTypeId` | Integer | Zone type (5=Urban) |
-| `tariffStr` | String | Formatted fare string |
-| `durationMinuts` | Integer | Route duration in minutes |
-
-### Nested Objects
-
-#### PaymentType
-```json
-{
-  "id": 2,
-  "name": "Nəğd",
-  "description": null,
-  "isActive": true,
-  "deactivedDate": null,
-  "priority": 2
-}
-```
-
-#### Stop Object
-```json
-{
-  "id": 5856,
-  "stopCode": "1001631",
-  "stopName": "Yeni Türkan qәs.",
-  "totalDistance": 30,
-  "intermediateDistance": 0,
-  "directionTypeId": 1,
-  "busId": 145,
-  "stopId": 1732,
-  "stop": {
-    "id": 1732,
-    "code": "1001631",
-    "name": "Yeni Türkan qәs.",
-    "longitude": "50.15006",
-    "latitude": "40.378864",
-    "isTransportHub": false
-  }
-}
-```
-
-#### Route Object (with coordinates)
-```json
-{
-  "id": 207,
-  "code": "210",
-  "destination": "Yeni Türkan qәs. - 89 saylı poçt şöbəsi",
-  "directionTypeId": 1,
-  "busId": 145,
-  "flowCoordinates": [
-    {"lat": 40.37881, "lng": 50.15003},
-    {"lat": 40.37836, "lng": 50.15146}
-  ]
 }
 ```
 
