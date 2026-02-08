@@ -4,10 +4,11 @@ import { RouteCoordinate } from '@/lib/types';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const routeId = parseInt(params.id);
+    const { id } = await params;
+    const routeId = parseInt(id);
 
     if (isNaN(routeId)) {
       return NextResponse.json(
