@@ -71,12 +71,12 @@ export default function InsightsPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  const avgRouteLength = buses.reduce((sum, bus) => sum + bus.route_length, 0) / buses.length;
-  const avgDuration = buses.reduce((sum, bus) => sum + bus.duration_minuts, 0) / buses.length;
-  const totalRouteLength = buses.reduce((sum, bus) => sum + bus.route_length, 0);
+  const avgRouteLength = buses.reduce((sum, bus) => sum + Number(bus.route_length), 0) / buses.length;
+  const avgDuration = buses.reduce((sum, bus) => sum + Number(bus.duration_minuts), 0) / buses.length;
+  const totalRouteLength = buses.reduce((sum, bus) => sum + Number(bus.route_length), 0);
 
-  const longestRoute = buses.reduce((max, bus) => bus.route_length > max.route_length ? bus : max, buses[0]);
-  const shortestRoute = buses.reduce((min, bus) => bus.route_length < min.route_length ? bus : min, buses[0]);
+  const longestRoute = buses.reduce((max, bus) => Number(bus.route_length) > Number(max.route_length) ? bus : max, buses[0]);
+  const shortestRoute = buses.reduce((min, bus) => Number(bus.route_length) < Number(min.route_length) ? bus : min, buses[0]);
 
   return (
     <div className="p-4 lg:p-8 space-y-6">
@@ -124,7 +124,7 @@ export default function InsightsPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Length:</span>
-              <span className="font-semibold text-gray-800">{longestRoute?.route_length} km</span>
+              <span className="font-semibold text-gray-800">{Number(longestRoute?.route_length).toFixed(2)} km</span>
             </div>
             <div className="pt-2 border-t">
               <div className="text-xs text-gray-500 mb-1">Route</div>
@@ -146,7 +146,7 @@ export default function InsightsPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Length:</span>
-              <span className="font-semibold text-gray-800">{shortestRoute?.route_length} km</span>
+              <span className="font-semibold text-gray-800">{Number(shortestRoute?.route_length).toFixed(2)} km</span>
             </div>
             <div className="pt-2 border-t">
               <div className="text-xs text-gray-500 mb-1">Route</div>
