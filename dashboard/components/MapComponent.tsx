@@ -32,7 +32,7 @@ function MapUpdater({ stops }: { stops: Stop[] }) {
   useEffect(() => {
     if (stops.length > 0) {
       const bounds = L.latLngBounds(
-        stops.map(stop => [stop.latitude, stop.longitude])
+        stops.map(stop => [Number(stop.latitude), Number(stop.longitude)])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
@@ -59,37 +59,41 @@ export default function MapComponent({ stops }: MapComponentProps) {
 
       <MapUpdater stops={stops} />
 
-      {stops.map((stop) => (
-        <CircleMarker
-          key={stop.id}
-          center={[stop.latitude, stop.longitude]}
-          radius={stop.is_transport_hub ? 8 : 5}
-          pathOptions={{
-            fillColor: stop.is_transport_hub ? '#EF4444' : '#3B82F6',
-            color: stop.is_transport_hub ? '#DC2626' : '#2563EB',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.7,
-          }}
-        >
-          <Popup>
-            <div className="p-2">
-              <h3 className="font-bold text-gray-800 mb-1">{stop.name}</h3>
-              {stop.code && (
-                <p className="text-xs text-gray-600 mb-1">Code: {stop.code}</p>
-              )}
-              <p className="text-xs text-gray-500">
-                {stop.latitude.toFixed(6)}, {stop.longitude.toFixed(6)}
-              </p>
-              {stop.is_transport_hub && (
-                <p className="text-xs text-red-600 font-medium mt-1">
-                  🚇 Transport Hub
+      {stops.map((stop) => {
+        const lat = Number(stop.latitude);
+        const lng = Number(stop.longitude);
+        return (
+          <CircleMarker
+            key={stop.id}
+            center={[lat, lng]}
+            radius={stop.is_transport_hub ? 8 : 5}
+            pathOptions={{
+              fillColor: stop.is_transport_hub ? '#EF4444' : '#3B82F6',
+              color: stop.is_transport_hub ? '#DC2626' : '#2563EB',
+              weight: 2,
+              opacity: 1,
+              fillOpacity: 0.7,
+            }}
+          >
+            <Popup>
+              <div className="p-2">
+                <h3 className="font-bold text-gray-800 mb-1">{stop.name}</h3>
+                {stop.code && (
+                  <p className="text-xs text-gray-600 mb-1">Code: {stop.code}</p>
+                )}
+                <p className="text-xs text-gray-500">
+                  {lat.toFixed(6)}, {lng.toFixed(6)}
                 </p>
-              )}
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+                {stop.is_transport_hub && (
+                  <p className="text-xs text-red-600 font-medium mt-1">
+                    🚇 Transport Hub
+                  </p>
+                )}
+              </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
     </MapContainer>
   );
 }
