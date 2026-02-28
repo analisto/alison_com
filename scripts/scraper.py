@@ -6,6 +6,7 @@ Fetches all courses from api.alison.com and saves to data/data.csv
 import csv
 import json
 import math
+import re
 import time
 import os
 import sys
@@ -62,6 +63,20 @@ FIELDS = [
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+# Fields that may contain HTML markup and should be stripped
+HTML_FIELDS = {"outcomes", "headline", "name"}
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+def strip_html(text: str) -> str:
+    """Remove HTML tags and normalise whitespace."""
+    if not text:
+        return text
+    text = _TAG_RE.sub(" ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def fetch_page(page: int) -> dict:
     url = (
         f"{BASE_URL}?page={page}&locale={LOCALE}"
@@ -100,6 +115,8 @@ def flatten(course: dict) -> dict:
         elif isinstance(val, dict):
             row[field] = json.dumps(val)
         else:
+            if field in HTML_FIELDS and isinstance(val, str):
+                val = strip_html(val)
             row[field] = val
     return row
 
